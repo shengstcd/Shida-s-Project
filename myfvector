@@ -1,0 +1,81 @@
+function fp1 = myfvector(Filename,n)
+
+fp = 0;
+VidObj = VideoReader(Filename);
+f1 = read(VidObj, n);
+f2 = read(VidObj, n+1);
+f1 = rgb2gray(f1);
+f2 = rgb2gray(f2);
+
+
+%divide the image into 16 bolcks     widthx ，height     image size; N: block size, R: search range
+
+[height, width] = size(f2)
+N=8;
+R=8;
+
+ 
+for i = 1 : N : width - N + 1
+  for j = 1 : N : height - N +1 %for every block in the anchor frame
+    
+  % for every block (i,j), culculate the best matching block 
+  %(i+k,j+l) in the rectangle scope
+  % [(i-R,j-k),(i+R,j+k)]
+  MAD_min = 256 * N * N;
+  dy = 0;
+  dx = 0;
+  %for every search candidate
+  ref_block = double(f1(j : j + N - 1, i : i + N - 1));
+  curr_block = double(f2(j : j + N - 1, i : i + N - 1));
+  if mean(mean(abs(ref_block - curr_block))) > 5
+    for k = -R : R
+      for l = -R : R, 
+        if j + k < 1
+          MAD = 256 * N * N ;
+        elseif j + k > height - N
+          MAD = 256 * N * N ;
+        elseif i + l < 1
+          MAD = 256 * N * N;
+        elseif i + l > width - N
+          MAD = 256 * N * N;
+        else
+          % calculate MAD for this candidate
+          MAD = sum(sum(abs(ref_block - ...
+               double(f2(j + k : j + k + N - 1, i + l : i + l + N - 1)))));
+        end
+        if MAD < MAD_min
+          MAD_min = MAD;
+          dy = k;
+          dx = l;
+        end;
+      end;
+    end;
+  else
+    dx = 0;
+    dy = 0;
+  end; % End of test for motion
+    fp( j : j + N - 1 , i : i + N - 1 ) =  ...
+                   f2( j + dy : j + dy + N - 1, i + dx : i + dx + N - 1 );
+
+   iblk = floor ((i - 1) ./ N + 1); 
+   jblk = floor(( j - 1 ) ./ N+1); %block index
+   mvx1(jblk , iblk) = dx;
+   mvy1(jblk , iblk) = dy;  %record the estimated MV
+  end;
+  fprintf('.%d', i);
+end;
+figure(6)
+imshow(uint8(fp))
+title('predictforward');
+
+[X1,Y1] = meshgrid( N / 2 : N : width - N / 2, N / 2 : N : height - N / 2);
+figure(7);
+image((1 : width), (1 : height), f1);
+colormap(gray(256));
+hold on;
+quiver(X1 ,Y1, mvx1 ,mvy1);
+title('Motion vectors (forward)');
+
+fp1 = fp;
+
+end
