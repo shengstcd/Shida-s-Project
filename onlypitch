@@ -1,0 +1,247 @@
+close all;
+clear all;
+% read in 
+folder1 = fullfile('C:\Users\Juadds\Desktop\speechwork\Training data\FEMALE');
+folder2 = fullfile('C:\Users\Juadds\Desktop\speechwork\Training data\MALE');
+folder3 = fullfile('C:\Users\Juadds\Desktop\speechwork\Training data\verification');
+folder4 = fullfile('C:\Users\Juadds\Desktop\speechwork\Training data\Test');
+
+
+ads1 = audioDatastore(folder1, 'IncludeSubfolders',true, ...
+    'FileExtensions','.wav', ...
+    'LabelSource','foldernames')
+
+ads2 = audioDatastore(folder2, 'IncludeSubfolders',true, ...
+    'FileExtensions','.wav', ...
+    'LabelSource','foldernames')
+
+ads3 = audioDatastore(folder3, 'IncludeSubfolders',true, ...
+    'FileExtensions','.wav', ...
+    'LabelSource','foldernames')
+  ads4 = audioDatastore(folder4, 'IncludeSubfolders',true, ...
+    'FileExtensions','.m4a', ...
+    'LabelSource','foldernames')
+
+
+  
+  
+  
+  
+  
+%female
+
+
+
+
+reset(ads1)
+lenDataTrain = length(ads1.Files);
+features = cell(lenDataTrain,1);
+for i = 1:lenDataTrain
+    [dataTrain, infoTrain] = read(ads1);
+    features{i} = HelperComputePitchAndMFCC(dataTrain,infoTrain);
+end
+features = vertcat(features{:});
+features = rmmissing(features);
+featureVectors = features{:,2:15};
+femalepitch = features{:,2};
+% f1 = mean(femalepitch)
+% m = mean(featureVectors);
+% s = std(featureVectors);
+% features{:,2:15} = (featureVectors-m)./s;
+
+
+%malesiz
+
+
+reset(ads2)
+lenDataTrain2 = length(ads2.Files);
+features2 = cell(lenDataTrain2,1);
+for i = 1:lenDataTrain2
+    [dataTrain2, infoTrain3] = read(ads2);
+    features2{i} = HelperComputePitchAndMFCC(dataTrain2,infoTrain3);
+end
+features2 = vertcat(features2{:});
+features2 = rmmissing(features2);
+featureVectors2 = features2{:,2:15};
+malepitch = features2{:,2};
+% f2 = mean(malepitch)
+% m2 = mean(featureVectors2);
+% s2 = std(featureVectors2);
+% features2{:,2:15} = (featureVectors2-m2)./s2;
+
+
+% verification data (including male and female)
+reset(ads3)
+lenDataTrain3 = length(ads3.Files);
+features3 = cell(lenDataTrain3,1);
+for i = 1:lenDataTrain3
+    [dataTrain3, infoTrain3] = read(ads3);
+    features3{i} = HelperComputePitchAndMFCC(dataTrain3,infoTrain3);
+end
+features3 = vertcat(features3{:});
+features3 = rmmissing(features3);
+featureVectors3 = features3{:,2:15};
+mixpitch = features3{:,2};
+
+
+
+
+
+% test
+reset(ads4)
+lenDataTrain4 = length(ads4.Files);
+features4 = cell(lenDataTrain3,1);
+for i = 1:lenDataTrain4
+    [dataTrain4, infoTrain4] = read(ads4);
+    features4{i} = HelperComputePitchAndMFCC(dataTrain4,infoTrain4);
+end
+features4 = vertcat(features4{:});
+features4 = rmmissing(features4);
+featureVectors4 = features4{:,2:15};
+
+
+
+
+
+% m3 = mean(featureVectors3);
+% s3 = std(featureVectors3);
+% features3{:,2:15} = (featureVectors3-m3)./s3;
+
+
+
+
+%set up Gmm models
+
+maleF = features2{:,2} ; 
+femaleF = features{:,2};
+verificationMf = features3{:,2} ;
+testMf = features4{:,2} ;
+MU1 = mean(femaleF);
+MU2 = mean(maleF);
+Sigma1 = cov(femaleF);
+Sigma2 = cov(maleF);
+X = [mvnrnd(MU1,Sigma1,10000)];
+Y = [mvnrnd(MU2,Sigma2,10000)];
+
+
+gm1 = fitgmdist(X,1);
+plot(X(:,1),'ko')
+figure(3)
+gm2 = fitgmdist(Y,1);
+plot(Y(:,1),'ko')
+figure(4)
+%calculate the pdf
+o = pdf(gm1,verificationMf);
+j = pdf(gm2,verificationMf);
+o1= pdf(gm1,testMf);
+j1 = pdf(gm1,testMf);
+p =  0;m = 0 ;
+CC = features3{:,16};
+KK = features3{:,1};
+UU = cell(length(CC),1);
+GG = features4{:,1};
+% p is the times that female appear ...
+% m is the male times
+for i = 1 : size(CC)
+  if o(i) >= j (i)
+    
+    Female = extractBefore(CC(i),2)
+    tf1 = strcmp(Female,"F")
+    if tf1 == 1;
+    p = p + 1;
+    
+    end
+  else
+         
+        Malew = extractBefore(CC(i),2)
+        tf2 = strcmp(Malew,"M")       
+        if tf2 == 1
+              m = m+1;
+             
+        end
+  
+  end
+end
+k= 0;
+for i =  1:length(CC)
+  Num1 =  extractBefore(CC(i),2);
+    tf3 = strcmp(Num1,"F")
+    if tf3 == 1
+      k=k+1
+    end
+end
+ww = length(CC) - k;% man's number
+ 
+      
+  
+
+%the accurancy
+v =(m/ww);
+e = (p/k);
+str=['Man Accuracy=' num2str(v)];
+str1=['Woman Accuracy=' num2str(e)];
+
+disp(str);
+disp(str1);
+
+
+ y1 = malepitch(1:100,:);
+ y2 = femalepitch(1:100,:);
+x = 1:size(y1);
+
+
+figure(1)
+plot(x,y1,'-V')
+title('male pitch')
+xlabel('sample number')
+ylabel('Pitch (Hz)')
+
+figure(2)
+plot(x,y2,'-V')
+title('Female pitch ')
+xlabel('sample number')
+ylabel('Pitch (Hz)')
+%test outcomes
+for i = 1 : length(GG);
+    s = 0;
+    V = 0;
+  if o1(i) >= j1 (i)
+    GG{i}="Female"
+    s = s +1;
+    
+  else
+         
+     GG{i} = "Male"
+         V = V +1;    
+        end
+  
+end
+
+[Fidx,Filenames] = findgroups(features4.Filename);
+I = cell(1,1);
+ if s > V;
+   I = 'Female'
+ else
+   I = 'Male'
+ end
+ filename1 = Filenames;
+ Gender = I ;
+ T = {filename1,I};
+ 
+ T1 = cell2table(T,...
+    'VariableNames',{'Filename ' 'Gender'})
+disp(str);
+disp(str1);
+% MM = [features3,UU]
+
+% ooo = pdf(gm1,testMF)
+% jjj = pdf(gm2,testMF)
+% [Fidx,Filenames] = findgroups(MM.Filename,Var17);
+% for idx = 1:length(Filenames)
+%  T = featuresTest(Fidx==idx,2:end); 
+%  if  ooo(idx) >= jjj(idx)
+%      predictedLabels = "female"
+%  else
+%    predictedLabels = "female"
+
+
