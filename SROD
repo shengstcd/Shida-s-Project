@@ -1,0 +1,75 @@
+clear all;
+close all;
+clc;
+Filename= 'boac1957trinidadcarnival.5secs.mp4'
+f_previous = 0;
+f_next = 0;
+VidObj = VideoReader(Filename);
+
+% Convert image to grayscale
+f_current = read(VidObj, 75);
+f_current = rgb2gray(f_current);
+f_current = double(f_current);
+
+figure(1)
+image(f_current);
+colormap(gray(256));
+title('Current');
+
+[rows, cols, channels] = size(f_current);
+
+%get the motion vector
+f_next = halfpixelforward(Filename,75);
+f_previous = halfpixelbackward(Filename,75);
+  
+figure(2)
+image(f_next);
+colormap(gray(256));
+title('next');
+
+figure(3)
+image(f_previous);
+colormap(gray(256));
+title('Previous');
+
+
+
+T = 35
+
+ for j = 2 : rows - 1,
+    for i = 2 :cols - 1,   
+      current_pixel = f_current(j, i);
+      r1 = f_previous(j, i);
+      r2 = f_previous(j, i + 1);
+      r3 = f_previous(j, i - 1 );
+      r4 = f_previous(j + 1, i);
+      r5 = f_previous(j - 1, i);
+
+      r6 = f_next(j, i);
+      r7 = f_next(j, i + 1);
+      r8 = f_next(j, i - 1);
+      r9 = f_next(j + 1, i);
+      r10 = f_next(j - 1, i);
+
+
+      r = [r1, r2, r3, r4, r5, r6 r7 r8 r9 r10];
+      
+       if min(r) > current_pixel
+          D =  abs(min(r) - current_pixel) ;
+       elseif current_pixel > max(r)
+          D = abs(current_pixel - max(r)) ;
+       else
+         D = 0;
+       end
+       
+    blotch(j, i) = (abs(D) > T);
+    
+  end
+  end;
+  
+real_blotch = 255 * (blotch);
+
+figure(10);
+image(real_blotch);
+colormap(gray(256));
+title('blotch');
